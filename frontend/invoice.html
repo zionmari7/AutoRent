@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rental Invoice</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f3f4f6;
+      color: #1a1a1a;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    #state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-size: 16px;
+      color: #555;
+    }
+
+    #invoice {
+      max-width: 780px;
+      margin: 32px auto;
+      background: #fff;
+      padding: 48px 56px;
+      box-shadow: 0 1px 6px rgba(0,0,0,.12);
+    }
+
+    /* ── Print button ── */
+    #print-btn {
+      position: fixed;
+      top: 20px;
+      right: 24px;
+      background: #1d4ed8;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,.2);
+      z-index: 100;
+    }
+    #print-btn:hover { background: #1e40af; }
+
+    /* ── Header ── */
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .company-name {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -.3px;
+      color: #111;
+    }
+    .invoice-label {
+      font-size: 18px;
+      font-weight: 600;
+      color: #4b5563;
+      text-align: right;
+      margin-top: 4px;
+    }
+    .company-details {
+      margin-top: 6px;
+      font-size: 13px;
+      color: #555;
+      line-height: 1.7;
+    }
+    hr.divider {
+      border: none;
+      border-top: 1px solid #d1d5db;
+      margin: 20px 0;
+    }
+
+    /* ── Invoice meta ── */
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 24px;
+      margin-bottom: 28px;
+    }
+    .meta-row { display: flex; gap: 6px; }
+    .meta-label { color: #6b7280; min-width: 120px; flex-shrink: 0; }
+    .meta-value { font-weight: 500; }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 12px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+    }
+    .badge-paid    { background: #dcfce7; color: #15803d; }
+    .badge-due     { background: #fee2e2; color: #dc2626; }
+
+    /* ── Two-column section ── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .7px;
+      color: #6b7280;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 4px;
+    }
+    .info-line { margin-bottom: 3px; }
+    .info-label { color: #6b7280; font-size: 12px; }
+
+    /* ── Table ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 28px;
+      font-size: 13.5px;
+    }
+    thead th {
+      background: #f9fafb;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: #6b7280;
+      padding: 9px 12px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    thead th:last-child { text-align: right; }
+    tbody td {
+      padding: 9px 12px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    tbody td:last-child { text-align: right; }
+    .total-row td {
+      font-weight: 700;
+      background: #f9fafb;
+      border-top: 2px solid #e5e7eb;
+      border-bottom: none;
+    }
+
+    /* ── Summary box ── */
+    .summary-box {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 36px;
+    }
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 11px 18px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-label { color: #4b5563; }
+    .summary-value { font-weight: 600; }
+    .summary-row.balance-paid {
+      background: #f0fdf4;
+      color: #15803d;
+    }
+    .summary-row.balance-due {
+      background: #fef2f2;
+      color: #dc2626;
+    }
+    .summary-row.balance-paid .summary-label,
+    .summary-row.balance-paid .summary-value { color: #15803d; }
+    .summary-row.balance-due .summary-label,
+    .summary-row.balance-due .summary-value { color: #dc2626; }
+
+    /* ── Footer ── */
+    .footer {
+      text-align: center;
+      color: #6b7280;
+      font-size: 13px;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 20px;
+    }
+    .footer p + p { margin-top: 4px; font-size: 11px; color: #9ca3af; }
+
+    /* ── Print ── */
+    @media print {
+      body { background: #fff; }
+      #print-btn { display: none; }
+      #invoice { box-shadow: none; margin: 0; padding: 32px 40px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="state">Loading invoice&hellip;</div>
+
+<button id="print-btn" style="display:none" onclick="window.print()">Print / Save as PDF</button>
+
+<div id="invoice" style="display:none"></div>
+
+<script>
+  function fmt(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr + (dateStr.length === 10 ? 'T00:00:00' : ''));
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+
+  function fmtMoney(n) {
+    return '₱' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function invNum(id) {
+    return 'INV-' + String(id).padStart(4, '0');
+  }
+
+  function escape(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  async function load() {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    if (!id) {
+      showError('No rental ID provided.');
+      return;
+    }
+
+    let data;
+    try {
+      const res = await fetch(`http://localhost:3000/api/invoice/${encodeURIComponent(id)}`);
+      if (!res.ok) throw new Error('not found');
+      data = await res.json();
+    } catch {
+      showError('Invoice not found. Check the rental ID.');
+      return;
+    }
+
+    render(data);
+  }
+
+  function showError(msg) {
+    document.getElementById('state').textContent = msg;
+  }
+
+  function render({ rental, vehicle, customer, payments, summary, company }) {
+    document.getElementById('state').style.display = 'none';
+    document.getElementById('print-btn').style.display = '';
+
+    const days = rental.days || 1;
+    const isPaid = summary.is_paid;
+
+    const paymentRows = payments.map(p => `
+      <tr>
+        <td>${escape(fmt(p.paid_at))}</td>
+        <td>${escape(p.method)}</td>
+        <td>${fmtMoney(p.amount)}</td>
+      </tr>
+    `).join('');
+
+    const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
+
+    const balanceClass = summary.balance_due > 0 ? 'balance-due' : 'balance-paid';
+
+    const tinLine = company.tin
+      ? `<div>TIN: ${escape(company.tin)}</div>`
+      : '';
+
+    document.getElementById('invoice').innerHTML = `
+      <div class="header-top">
+        <div>
+          <div class="company-name">${escape(company.name)}</div>
+          <div class="company-details">
+            <div>${escape(company.address)}</div>
+            <div>${escape(company.phone)}</div>
+            <div>${escape(company.email)}</div>
+            ${tinLine}
+          </div>
+        </div>
+        <div class="invoice-label">RENTAL INVOICE</div>
+      </div>
+
+      <hr class="divider" />
+
+      <div class="meta-grid">
+        <div class="meta-row">
+          <span class="meta-label">Invoice #</span>
+          <span class="meta-value">${escape(invNum(rental.id))}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Status</span>
+          <span class="meta-value">
+            <span class="badge ${isPaid ? 'badge-paid' : 'badge-due'}">
+              ${isPaid ? 'PAID' : 'BALANCE DUE'}
+            </span>
+          </span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Date Issued</span>
+          <span class="meta-value">${fmt(new Date().toISOString().slice(0,10))}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Rental Period</span>
+          <span class="meta-value">${fmt(rental.start_date)} &ndash; ${fmt(rental.end_date)}</span>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div>
+          <div class="section-title">Bill To</div>
+          <div class="info-line" style="font-weight:600;font-size:15px">
+            ${escape(customer.first_name)} ${escape(customer.last_name)}
+          </div>
+          <div class="info-line"><span class="info-label">Email: </span>${escape(customer.email)}</div>
+          <div class="info-line"><span class="info-label">Phone: </span>${escape(customer.phone)}</div>
+          <div class="info-line"><span class="info-label">Address: </span>${escape(customer.address)}</div>
+          <div class="info-line"><span class="info-label">License No.: </span>${escape(customer.license_no)}</div>
+        </div>
+        <div>
+          <div class="section-title">Vehicle Details</div>
+          <div class="info-line" style="font-weight:600;font-size:15px">
+            ${escape(vehicle.year)} ${escape(vehicle.make)} ${escape(vehicle.model)}
+          </div>
+          <div class="info-line"><span class="info-label">Plate: </span>${escape(vehicle.plate)}</div>
+          <div class="info-line"><span class="info-label">Type: </span>${escape(vehicle.type)}</div>
+          <div class="info-line">
+            <span class="info-label">Rate: </span>
+            ${fmtMoney(vehicle.daily_rate)} &times; ${days} day${days !== 1 ? 's' : ''}
+            = <strong>${fmtMoney(vehicle.daily_rate * days)}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">Payments Received</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Method</th>
+            <th style="text-align:right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${payments.length
+            ? paymentRows + `
+              <tr class="total-row">
+                <td colspan="2">Total Paid</td>
+                <td>${fmtMoney(totalPaid)}</td>
+              </tr>`
+            : '<tr><td colspan="3" style="color:#9ca3af;padding:14px 12px">No payments recorded.</td></tr>'
+          }
+        </tbody>
+      </table>
+
+      <div class="summary-box">
+        <div class="summary-row">
+          <span class="summary-label">Subtotal</span>
+          <span class="summary-value">${fmtMoney(summary.total_amount)}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Amount Paid</span>
+          <span class="summary-value">${fmtMoney(summary.amount_paid)}</span>
+        </div>
+        <div class="summary-row ${balanceClass}">
+          <span class="summary-label">Balance Due</span>
+          <span class="summary-value">${fmtMoney(summary.balance_due)}</span>
+        </div>
+      </div>
+
+      <div class="footer">
+        <p>Thank you for choosing ${escape(company.name)}.</p>
+        <p>This invoice was generated automatically.</p>
+      </div>
+    `;
+
+    document.getElementById('invoice').style.display = '';
+    document.title = `${invNum(rental.id)} — ${escape(company.name)}`;
+  }
+
+  load();
+</script>
+</body>
+</html>
