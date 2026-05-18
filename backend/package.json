@@ -4,8 +4,9 @@
   "description": "AutoRent Car Rental Management - Backend API",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start":  "node server.js",
+    "dev":    "nodemon server.js",
+    "backup": "node backup.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
