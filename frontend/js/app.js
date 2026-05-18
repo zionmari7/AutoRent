@@ -515,16 +515,14 @@ async function loadRentals(filter = '') {
             ${fmt(r.amount_paid||0)}
           </td>
           <td>${statusCell}</td>
-          <td style="display:flex;gap:5px;flex-wrap:wrap">
+          <td style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
             ${r.status === 'active'
               ? `<button class="btn btn-o btn-sm" onclick="completeRental(${r.id})">Complete</button>
                  <button class="btn btn-sm" style="background:#fff0f0;color:var(--red);border:1px solid #fecaca"
                    onclick="cancelRental(${r.id})">Cancel</button>`
               : ''}
-            <button class="btn btn-o btn-sm"
-              onclick="openInvoice(${r.id})">
-              🧾 Invoice
-            </button>
+            <button class="btn btn-o btn-sm" onclick="openInvoice(${r.id})">🧾 Invoice</button>
+            <button class="btn btn-o btn-sm" onclick="window.open('/contract.html?id=${r.id}','_blank')">📄 Contract</button>
           </td>
         </tr>`}).join('')
     : `<tr><td colspan="9" class="td-empty">${filter === 'overdue' ? 'No overdue rentals 🎉' : 'No rentals found.'}</td></tr>`;
