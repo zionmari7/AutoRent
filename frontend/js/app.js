@@ -130,10 +130,9 @@ async function loadDashboard() {
   const [d, trackData] = await Promise.all([apiFetch('/dashboard'), apiFetch('/tracking')]);
 
   el('d-revenue').textContent    = fmt(d.monthly_revenue);
-  el('d-fleet').textContent      = d.fleet.total;
-  el('d-fleet-sub').textContent  = `${d.fleet.available} avail · ${d.fleet.rented} rented`;
+  el('d-available').textContent  = d.fleet.available;
+  el('d-rented').textContent     = d.fleet.rented;
   el('d-active').textContent     = d.rentals.active;
-  el('d-customers').textContent  = d.total_customers;
 
   // Overdue alert strip
   const overdue = d.rentals.overdue || 0;
@@ -282,9 +281,11 @@ async function saveVehicle() {
     if (id) {
       await apiFetch(`/vehicles/${id}`, { method:'PATCH', body });
       toast('Vehicle updated');
+      invalidateSearchCache('vehicles');
     } else {
       await apiFetch('/vehicles', { method:'POST', body });
       toast('Vehicle added!');
+      invalidateSearchCache('vehicles');
     }
     closeModal('m-vehicle'); loadFleet();
   } catch (e) { toast(e.message, 'error'); }
@@ -533,7 +534,7 @@ async function completeRental(id) {
   if (!confirm('Mark rental as completed? Vehicle will become available.')) return;
   try {
     await apiFetch(`/rentals/${id}/complete`, { method:'PATCH' });
-    toast('Rental completed!'); loadRentals();
+    toast('Rental completed!'); invalidateSearchCache('rentals'); loadRentals();
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -541,7 +542,7 @@ async function cancelRental(id) {
   if (!confirm('Cancel this rental? Vehicle will become available.')) return;
   try {
     await apiFetch(`/rentals/${id}/cancel`, { method:'PATCH' });
-    toast('Rental cancelled.'); loadRentals();
+    toast('Rental cancelled.'); invalidateSearchCache('rentals'); loadRentals();
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -590,8 +591,12 @@ async function saveRental() {
   if (!body.customer_id || !body.vehicle_id || !body.start_date || !body.end_date)
     return toast('Fill in all required fields', 'error');
   try {
-    await apiFetch('/rentals', { method:'POST', body });
-    toast('Rental created!'); closeModal('m-rental'); loadRentals();
+    const created = await apiFetch('/rentals', { method:'POST', body });
+    closeModal('m-rental');
+    loadRentals();
+    invalidateSearchCache('rentals');
+    toast('Rental created! Opening contract...');
+    setTimeout(() => window.open(`/contract.html?id=${created.id}`, '_blank'), 400);
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -659,9 +664,11 @@ async function saveCustomer() {
     if (id) {
       await apiFetch(`/customers/${id}`, { method:'PATCH', body });
       toast('Customer updated!');
+      invalidateSearchCache('customers');
     } else {
       await apiFetch('/customers', { method:'POST', body });
       toast(`${body.first_name} added!`);
+      invalidateSearchCache('customers');
     }
     closeModal('m-customer');
     ['c-id','c-fn','c-ln','c-email','c-phone','c-license','c-address'].forEach(i => { el(i).value = ''; });
@@ -756,7 +763,7 @@ async function loadNotifications() {
     if (!groups[level].length) continue;
     html += `<div class="notif-section">${groupLabels[level]}</div>`;
     html += groups[level].map(a => `
-      <div class="notif-item ${level}" onclick="goTo('${a.action}');closeNotifPanel()">
+      <div class="notif-item ${level}" onclick="handleNotifClick('${a.action}','${a.target_type || ''}',${a.target_id || 0});closeNotifPanel()">
         <div class="notif-icon">${a.icon}</div>
         <div class="notif-content">
           <div class="notif-item-title">${a.title}</div>
@@ -806,7 +813,7 @@ async function loadReports() {
   const data  = await apiFetch(`/reports?month=${month}`);
 
   drawRevenueChart(data.monthly_revenue);
-  drawRevenueTarget(data.revenue_target, month);
+  drawSummaryStats(data.revenue_target, month);
   drawFleetChart(data.fleet_utilization, month);
   drawTopCustomers(data.top_customers, month);
 }
@@ -851,41 +858,45 @@ function drawRevenueChart(rows) {
   });
 }
 
-function drawRevenueTarget(data, month) {
+function drawSummaryStats(revenueTarget, month) {
   const container = el('chart-methods')?.closest('.rpt-card');
   if (!container) return;
-  const pct   = data.percent;
-  const color = pct >= 100 ? 'var(--green)' : pct >= 60 ? 'var(--blue)' : 'var(--yellow)';
-  const label = pct >= 100 ? '🎉 Target reached!' : pct >= 60 ? '✅ On track' : '⚠️ Needs attention';
+
+  const r = revenueTarget;
+  const pct = r ? r.percent : 0;
+  const bar_color = pct >= 100 ? 'var(--green)' : pct >= 60 ? 'var(--blue)' : 'var(--yellow)';
+
   container.innerHTML = `
     <div class="sh">
-      <div class="st">Revenue vs Target</div>
+      <div class="st">Monthly Summary</div>
       <div style="font-size:12px;color:var(--text2)">${month}</div>
     </div>
-    <div style="margin-bottom:20px">
-      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px">
-        <span style="color:var(--text2)">Monthly Target</span>
-        <span style="font-weight:700;font-family:'Space Grotesk',sans-serif">${fmt(data.target)}</span>
+    ${r ? `
+    <div style="margin-bottom:18px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+        <span style="color:var(--text2)">Revenue vs ₱${Number(r.target).toLocaleString()} target</span>
+        <span style="font-weight:600;color:${bar_color}">${pct}%</span>
       </div>
-      <div style="background:var(--surface3);border-radius:99px;height:12px;overflow:hidden;margin-bottom:6px">
-        <div style="width:${pct}%;background:${color};height:12px;border-radius:99px;transition:width 0.6s ease"></div>
+      <div style="background:var(--surface3);border-radius:99px;height:8px;overflow:hidden">
+        <div style="width:${pct}%;background:${bar_color};height:8px;border-radius:99px;transition:width 0.5s ease"></div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:12px;color:var(--text2)">${fmt(data.current)} collected (${pct}%)</span>
-        <span style="font-size:12px;font-weight:600;color:${color}">${label}</span>
+      <div style="font-size:12px;color:var(--text2);margin-top:5px">
+        ${fmt(r.current)} collected
+        ${pct >= 100 ? ' · <span style="color:var(--green);font-weight:600">🎉 Target reached!</span>' : ''}
       </div>
     </div>
     <div style="border-top:1px solid var(--border);padding-top:14px">
       <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">By Payment Method</div>
-      ${data.methods.length
-        ? data.methods.map(m => `
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
-              <span style="color:var(--text2)">${esc(m.method)}</span>
-              <span><strong>${fmt(m.total)}</strong> <span style="color:var(--text3);font-size:11px">(${m.count}×)</span></span>
-            </div>`).join('')
+      ${r.methods && r.methods.length
+        ? r.methods.map(m => `
+          <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px">
+            <span style="color:var(--text2)">${esc(m.method)}</span>
+            <span><strong>${fmt(m.total)}</strong>
+            <span style="color:var(--text3);font-size:11px;margin-left:4px">${m.count}×</span></span>
+          </div>`).join('')
         : '<div style="color:var(--text3);font-size:13px;padding:8px 0">No payments this month</div>'
       }
-    </div>`;
+    </div>` : '<div style="color:var(--text3);font-size:13px;padding:20px 0;text-align:center">No data for this month</div>'}`;
 }
 
 function drawFleetChart(rows, month) {
@@ -940,62 +951,67 @@ function drawTopCustomers(rows, month) {
     </div>`).join('');
 }
 
-// ── CSV Export ────────────────────────────────────────────────────────────────
+// ── Excel Export ──────────────────────────────────────────────────────────────
 
-function downloadCSV(filename, rows, columns) {
-  const header = columns.map(c => c.label).join(',');
-  const body   = rows.map(row =>
+function downloadExcel(filename, rows, columns) {
+  if (!window.XLSX) { toast('Excel library not loaded', 'error'); return; }
+
+  const header = columns.map(c => c.label);
+  const data   = rows.map(row =>
     columns.map(c => {
       const val = row[c.key] ?? '';
-      return String(val).includes(',') || String(val).includes('"')
-        ? `"${String(val).replace(/"/g, '""')}"`
-        : String(val);
-    }).join(',')
+      return c.numeric ? (Number(val) || 0) : String(val);
+    })
   );
-  const csv  = [header, ...body].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+
+  const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+
+  ws['!cols'] = columns.map((c, i) => ({
+    wch: Math.max(
+      c.label.length,
+      ...data.map(r => String(r[i] ?? '').length)
+    ) + 2
+  }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Data');
+  XLSX.writeFile(wb, filename);
 }
 
-async function exportRentalsCSV() {
+async function exportRentalsExcel() {
   try {
     toast('Preparing rentals export...');
     const data = await apiFetch('/rentals');
-    downloadCSV('autorent-rentals.csv', data, [
-      { key: 'id',            label: 'Rental ID'   },
-      { key: 'customer_name', label: 'Customer'    },
-      { key: 'vehicle_name',  label: 'Vehicle'     },
-      { key: 'plate',         label: 'Plate'       },
-      { key: 'start_date',    label: 'Start Date'  },
-      { key: 'end_date',      label: 'End Date'    },
-      { key: 'total_amount',  label: 'Total (PHP)' },
-      { key: 'amount_paid',   label: 'Paid (PHP)'  },
-      { key: 'status',        label: 'Status'      },
+    downloadExcel('autorent-rentals.xlsx', data, [
+      { key:'id',            label:'Rental ID',   numeric:true  },
+      { key:'customer_name', label:'Customer'                   },
+      { key:'vehicle_name',  label:'Vehicle'                    },
+      { key:'plate',         label:'Plate'                      },
+      { key:'start_date',    label:'Start Date'                 },
+      { key:'end_date',      label:'End Date'                   },
+      { key:'total_amount',  label:'Total (PHP)', numeric:true  },
+      { key:'amount_paid',   label:'Paid (PHP)',  numeric:true  },
+      { key:'status',        label:'Status'                     },
     ]);
-    toast('Rentals CSV downloaded!');
+    toast('Rentals Excel downloaded!');
   } catch (e) { toast('Export failed: ' + e.message, 'error'); }
 }
 
-async function exportPaymentsCSV() {
+async function exportPaymentsExcel() {
   try {
     toast('Preparing payments export...');
     const data = await apiFetch('/payments');
-    downloadCSV('autorent-payments.csv', data, [
-      { key: 'id',            label: 'Payment ID'   },
-      { key: 'rental_id',     label: 'Rental ID'    },
-      { key: 'customer_name', label: 'Customer'     },
-      { key: 'vehicle_name',  label: 'Vehicle'      },
-      { key: 'amount',        label: 'Amount (PHP)' },
-      { key: 'method',        label: 'Method'       },
-      { key: 'paid_at',       label: 'Date Paid'    },
-      { key: 'notes',         label: 'Notes'        },
+    downloadExcel('autorent-payments.xlsx', data, [
+      { key:'id',            label:'Payment ID',   numeric:true  },
+      { key:'rental_id',     label:'Rental ID',    numeric:true  },
+      { key:'customer_name', label:'Customer'                    },
+      { key:'vehicle_name',  label:'Vehicle'                     },
+      { key:'amount',        label:'Amount (PHP)', numeric:true  },
+      { key:'method',        label:'Method'                      },
+      { key:'paid_at',       label:'Date Paid'                   },
+      { key:'notes',         label:'Notes'                       },
     ]);
-    toast('Payments CSV downloaded!');
+    toast('Payments Excel downloaded!');
   } catch (e) { toast('Export failed: ' + e.message, 'error'); }
 }
 
@@ -1006,58 +1022,117 @@ function closeModal(id) { el(id)?.classList.remove('open'); }
 
 // ─── SEARCH ───────────────────────────────────────────────────────────────────
 
+// ─── SEARCH AUTOCOMPLETE ─────────────────────────────────────────────────────
+
+const searchCache = { vehicles: [], customers: [], rentals: [] };
+
+function highlight(text, query) {
+  if (!query) return esc(text);
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return esc(text);
+  return esc(text.slice(0, idx)) +
+    `<span class="sd-highlight">${esc(text.slice(idx, idx + query.length))}</span>` +
+    esc(text.slice(idx + query.length));
+}
+
+function showDropdown(html) {
+  const d = el('search-dropdown');
+  d.innerHTML = html;
+  d.style.display = 'block';
+}
+
+function hideDropdown() {
+  const d = el('search-dropdown');
+  if (d) { d.style.display = 'none'; d.innerHTML = ''; }
+}
+
+async function runSearch(query) {
+  if (!query || query.length < 2) { hideDropdown(); return; }
+  try {
+    if (!searchCache.vehicles.length)
+      searchCache.vehicles = await apiFetch('/vehicles');
+    if (!searchCache.customers.length)
+      searchCache.customers = await apiFetch('/customers');
+    if (!searchCache.rentals.length)
+      searchCache.rentals = await apiFetch('/rentals');
+  } catch (e) { return; }
+
+  const q = query.toLowerCase();
+  let html = '';
+
+  const vMatches = searchCache.vehicles.filter(v =>
+    `${v.make} ${v.model} ${v.plate} ${v.color} ${v.type}`.toLowerCase().includes(q)
+  ).slice(0, 4);
+  if (vMatches.length) {
+    html += `<div class="sd-section">Vehicles</div>`;
+    html += vMatches.map(v => `
+      <div class="sd-item" onclick="goTo('fleet');hideDropdown();el('search-input').value=''">
+        <span class="sd-icon">${EMOJIS[v.type] || '🚗'}</span>
+        <div style="flex:1">
+          <div class="sd-label">${highlight(v.make + ' ' + v.model, query)}</div>
+          <div class="sd-sub">${esc(v.plate)} · ${esc(v.status)}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  const cMatches = searchCache.customers.filter(c =>
+    `${c.first_name} ${c.last_name} ${c.email || ''} ${c.phone || ''}`.toLowerCase().includes(q)
+  ).slice(0, 4);
+  if (cMatches.length) {
+    html += `<div class="sd-section">Customers</div>`;
+    html += cMatches.map(c => `
+      <div class="sd-item" onclick="goTo('customers');hideDropdown();el('search-input').value=''">
+        <span class="sd-icon">👤</span>
+        <div style="flex:1">
+          <div class="sd-label">${highlight(c.first_name + ' ' + c.last_name, query)}</div>
+          <div class="sd-sub">${esc(c.phone || c.email || '—')}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  const rMatches = searchCache.rentals.filter(r =>
+    `${r.customer_name} ${r.vehicle_name} ${r.id}`.toLowerCase().includes(q)
+  ).slice(0, 3);
+  if (rMatches.length) {
+    html += `<div class="sd-section">Rentals</div>`;
+    html += rMatches.map(r => `
+      <div class="sd-item" onclick="goTo('rentals');hideDropdown();el('search-input').value=''">
+        <span class="sd-icon">📄</span>
+        <div style="flex:1">
+          <div class="sd-label">${highlight(r.customer_name, query)}</div>
+          <div class="sd-sub">#${r.id} · ${esc(r.vehicle_name)} · ${badge(r.status)}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  if (!html) {
+    html = `<div class="sd-empty">No results for "<strong>${esc(query)}</strong>"</div>`;
+  }
+  showDropdown(html);
+}
+
+function invalidateSearchCache(type) {
+  if (type === 'vehicles'  || !type) searchCache.vehicles  = [];
+  if (type === 'customers' || !type) searchCache.customers = [];
+  if (type === 'rentals'   || !type) searchCache.rentals   = [];
+}
+
 let searchTimeout;
 el('search-input').addEventListener('input', e => {
   clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {
-    const q    = e.target.value.toLowerCase().trim();
-    const page = document.querySelector('.page.active')?.id?.replace('page-', '');
+  searchTimeout = setTimeout(() => runSearch(e.target.value.trim()), 200);
+});
 
-    if (page === 'fleet') {
-      if (!q) { renderFleetGrid(fleetAllData); return; }
-      renderFleetGrid(fleetAllData.filter(v =>
-        `${v.make} ${v.model} ${v.plate} ${v.color} ${v.type}`.toLowerCase().includes(q)
-      ));
-      return;
-    }
+document.addEventListener('click', e => {
+  if (!e.target.closest('.sbar-wrap')) hideDropdown();
+});
 
-    if (page === 'rentals') {
-      if (!q) { el('rentals-body').innerHTML = ''; loadRentals(); return; }
-      // Filter the in-memory cache — no extra API call
-      const filtered = rentalAllData.filter(r =>
-        `${r.customer_name} ${r.vehicle_name} ${r.id}`.toLowerCase().includes(q)
-      );
-      // Re-render filtered rows inline
-      el('rentals-body').innerHTML = filtered.length
-        ? filtered.map(r => {
-            const isOverdue = r.is_overdue;
-            const daysOverdue = r.days_overdue || 0;
-            const statusCell = isOverdue
-              ? `${badge('overdue')}<span class="overdue-tag">${daysOverdue}d late</span>`
-              : badge(r.status);
-            return `
-            <tr style="${isOverdue ? 'background:#fff5f5' : ''}">
-              <td><strong style="font-family:'Space Grotesk',sans-serif">#${r.id}</strong></td>
-              <td>${esc(r.customer_name)}</td><td>${esc(r.vehicle_name)}</td>
-              <td style="color:var(--text2)">${fmtDate(r.start_date)}</td>
-              <td style="color:var(--text2)">${fmtDate(r.end_date)}</td>
-              <td><strong>${fmt(r.total_amount)}</strong></td>
-              <td style="color:${(r.amount_paid||0)>=r.total_amount?'var(--green)':'var(--red)'}">
-                ${fmt(r.amount_paid||0)}
-              </td>
-              <td>${statusCell}</td><td></td>
-            </tr>`;}).join('')
-        : '<tr><td colspan="9" class="td-empty">No results</td></tr>';
-      return;
-    }
-
-    if (page === 'customers') {
-      if (!q) { loadCustomers(); return; }
-      loadCustomers(customerAllData.filter(c =>
-        `${c.first_name} ${c.last_name} ${c.email} ${c.phone}`.toLowerCase().includes(q)
-      ));
-    }
-  }, 250);
+el('search-input').addEventListener('keydown', e => {
+  if (e.key === 'Escape') { hideDropdown(); el('search-input').value = ''; }
+  if (e.key === 'Enter') {
+    const first = el('search-dropdown')?.querySelector('.sd-item');
+    if (first) first.click();
+  }
 });
 
 // ─── EVENT LISTENERS ──────────────────────────────────────────────────────────
@@ -1110,8 +1185,8 @@ el('btn-update-location').addEventListener('click', openLocationModal);
 el('btn-bell').addEventListener('click', openNotifPanel);
 el('btn-notif-close').addEventListener('click', closeNotifPanel);
 el('notif-overlay').addEventListener('click', closeNotifPanel);
-el('btn-export-rentals').addEventListener('click',  exportRentalsCSV);
-el('btn-export-payments').addEventListener('click', exportPaymentsCSV);
+el('btn-export-rentals').addEventListener('click',  exportRentalsExcel);
+el('btn-export-payments').addEventListener('click', exportPaymentsExcel);
 el('rpt-month')?.addEventListener('change', loadReports);
 el('rpt-year')?.addEventListener('change',  loadReports);
 
@@ -1167,6 +1242,30 @@ function startClock() {
   }
   tick();
   setInterval(tick, 1000);
+}
+
+// ─── NOTIFICATION CLICK HANDLER ──────────────────────────────────────────────
+function handleNotifClick(page, targetType, targetId) {
+  goTo(page);
+  if (!targetId) return;
+
+  setTimeout(() => {
+    if (targetType === 'rental') {
+      const rows = document.querySelectorAll('#rentals-body tr');
+      rows.forEach(row => {
+        const idCell = row.querySelector('td:first-child strong');
+        if (idCell && idCell.textContent.trim() === `#${targetId}`) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          row.style.transition = 'background 0.3s';
+          row.style.background = '#fffbeb';
+          setTimeout(() => { row.style.background = ''; }, 2500);
+        }
+      });
+    }
+    if (targetType === 'vehicle') {
+      el('fgrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 600);
 }
 
 // ─── SESSION EXPIRY WARNING ───────────────────────────────────────────────────

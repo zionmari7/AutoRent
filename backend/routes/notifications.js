@@ -18,11 +18,13 @@ router.get('/', (req, res) => {
     ORDER BY r.end_date ASC
   `).all();
   overdue.forEach(r => alerts.push({
-    level:   'critical',
-    icon:    '🚨',
-    title:   `Overdue: ${r.vehicle} (${r.plate})`,
-    message: `${r.customer} — ${r.days_late} day${r.days_late !== 1 ? 's' : ''} overdue since ${r.end_date}`,
-    action:  'rentals',
+    level:       'critical',
+    icon:        '🚨',
+    title:       `Overdue: ${r.vehicle} (${r.plate})`,
+    message:     `${r.customer} — ${r.days_late} day${r.days_late !== 1 ? 's' : ''} overdue since ${r.end_date}`,
+    action:      'rentals',
+    target_id:   r.id,
+    target_type: 'rental',
   }));
 
   // WARNING: Rentals ending tomorrow
@@ -36,11 +38,13 @@ router.get('/', (req, res) => {
       AND date(r.end_date) = date('now', '+1 day')
   `).all();
   endingSoon.forEach(r => alerts.push({
-    level:   'warning',
-    icon:    '📅',
-    title:   `Due tomorrow: ${r.vehicle} (${r.plate})`,
-    message: `${r.customer}${r.phone ? ' · ' + r.phone : ''} — return by ${r.end_date}`,
-    action:  'rentals',
+    level:       'warning',
+    icon:        '📅',
+    title:       `Due tomorrow: ${r.vehicle} (${r.plate})`,
+    message:     `${r.customer}${r.phone ? ' · ' + r.phone : ''} — return by ${r.end_date}`,
+    action:      'rentals',
+    target_id:   r.id,
+    target_type: 'rental',
   }));
 
   // WARNING: Unpaid or partial payments on active rentals
@@ -61,11 +65,13 @@ router.get('/', (req, res) => {
   unpaid.forEach(r => {
     const balance = r.total_amount - r.paid;
     alerts.push({
-      level:   'warning',
-      icon:    '💳',
-      title:   `Balance due: ${r.vehicle}`,
-      message: `${r.customer} owes ₱${balance.toLocaleString()} of ₱${r.total_amount.toLocaleString()}`,
-      action:  'payments',
+      level:       'warning',
+      icon:        '💳',
+      title:       `Balance due: ${r.vehicle}`,
+      message:     `${r.customer} owes ₱${balance.toLocaleString()} of ₱${r.total_amount.toLocaleString()}`,
+      action:      'payments',
+      target_id:   r.id,
+      target_type: 'rental',
     });
   });
 
@@ -75,11 +81,13 @@ router.get('/', (req, res) => {
     FROM vehicles WHERE status = 'maintenance'
   `).all();
   maintenance.forEach(v => alerts.push({
-    level:   'info',
-    icon:    '🔧',
-    title:   `Under maintenance: ${v.vehicle}`,
-    message: `${v.plate} — remember to schedule return to service`,
-    action:  'fleet',
+    level:       'info',
+    icon:        '🔧',
+    title:       `Under maintenance: ${v.vehicle}`,
+    message:     `${v.plate} — remember to schedule return to service`,
+    action:      'fleet',
+    target_id:   v.id,
+    target_type: 'vehicle',
   }));
 
   // INFO: Long rentals (7+ days active)
@@ -94,11 +102,13 @@ router.get('/', (req, res) => {
       AND julianday('now') - julianday(r.start_date) >= 7
   `).all();
   longRentals.forEach(r => alerts.push({
-    level:   'info',
-    icon:    '📆',
-    title:   `Long rental: ${r.vehicle}`,
-    message: `${r.customer} — ${r.days_out} days since ${r.start_date}`,
-    action:  'rentals',
+    level:       'info',
+    icon:        '📆',
+    title:       `Long rental: ${r.vehicle}`,
+    message:     `${r.customer} — ${r.days_out} days since ${r.start_date}`,
+    action:      'rentals',
+    target_id:   r.id,
+    target_type: 'rental',
   }));
 
   const urgentCount = alerts.filter(a => a.level === 'critical' || a.level === 'warning').length;
