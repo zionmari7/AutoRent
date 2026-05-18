@@ -60,6 +60,7 @@ const fmt      = n  => '₱' + Number(n).toLocaleString();
 const fmtDate  = d  => new Date(d).toLocaleDateString('en-PH', { month:'short', day:'numeric', year:'numeric' });
 const fmtTime  = d  => d ? new Date(d).toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit' }) : '—';
 const el       = id => document.getElementById(id);
+const esc      = s  => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
 function badge(status) {
   const labels = {
@@ -159,8 +160,8 @@ async function loadDashboard() {
   el('d-recent-rentals').innerHTML = d.recent_rentals.length
     ? d.recent_rentals.map(r => `
         <tr>
-          <td><strong>${r.customer_name}</strong></td>
-          <td>${r.vehicle_name}</td>
+          <td><strong>${esc(r.customer_name)}</strong></td>
+          <td>${esc(r.vehicle_name)}</td>
           <td style="color:var(--text2)">${fmtDate(r.start_date)} – ${fmtDate(r.end_date)}</td>
           <td><strong>${fmt(r.total_amount)}</strong></td>
           <td>${badge(r.status)}</td>
@@ -210,15 +211,15 @@ function renderFleetGrid(data) {
     <div class="fc">
       <div class="fc-top">
         <div>
-          <div class="fc-name">${v.year} ${v.make} ${v.model}</div>
-          <div style="margin-top:3px"><span class="fc-plate">${v.plate}</span></div>
+          <div class="fc-name">${v.year} ${esc(v.make)} ${esc(v.model)}</div>
+          <div style="margin-top:3px"><span class="fc-plate">${esc(v.plate)}</span></div>
         </div>
         ${badge(v.status)}
       </div>
       <div class="fc-emoji">${EMOJIS[v.type] || '🚗'}</div>
       <div class="fc-meta">
-        <div class="fc-row"><span class="fc-key">Type</span><span class="fc-val">${v.type}</span></div>
-        <div class="fc-row"><span class="fc-key">Color</span><span class="fc-val">${v.color || '—'}</span></div>
+        <div class="fc-row"><span class="fc-key">Type</span><span class="fc-val">${esc(v.type)}</span></div>
+        <div class="fc-row"><span class="fc-key">Color</span><span class="fc-val">${esc(v.color) || '—'}</span></div>
         <div class="fc-row"><span class="fc-key">Daily Rate</span>
           <span class="fc-val" style="color:var(--accent)">${fmt(v.daily_rate)}</span></div>
       </div>
@@ -318,14 +319,14 @@ function pinIcon(v) {
 function buildPopup(v) {
   const renter = v.renter_name
     ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #eee;font-size:11.5px;color:#64748b">
-         👤 ${v.renter_name} · ${v.renter_phone || '—'}
+         👤 ${esc(v.renter_name)} · ${esc(v.renter_phone) || '—'}
        </div>` : '';
   return `
     <div style="font-family:'DM Sans',sans-serif;min-width:180px">
-      <div style="font-weight:700;font-size:14px;margin-bottom:2px">${v.year} ${v.make} ${v.model}</div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:2px">${v.year} ${esc(v.make)} ${esc(v.model)}</div>
       <div style="font-size:11px;background:#f1f5f9;padding:2px 7px;border-radius:4px;
-                  display:inline-block;font-family:'Space Grotesk',sans-serif;margin-bottom:7px">${v.plate}</div>
-      <div style="font-size:12px;color:#475569;margin-bottom:3px">📍 ${v.address || 'Unknown location'}</div>
+                  display:inline-block;font-family:'Space Grotesk',sans-serif;margin-bottom:7px">${esc(v.plate)}</div>
+      <div style="font-size:12px;color:#475569;margin-bottom:3px">📍 ${esc(v.address) || 'Unknown location'}</div>
       <div style="font-size:12px;color:#475569">
         🚀 ${v.speed_kph > 0 ? v.speed_kph + ' km/h' : 'Parked'}
         &nbsp;·&nbsp; ⏱ ${fmtTime(v.updated_at)}
@@ -383,8 +384,8 @@ async function loadTracking() {
     <div class="tl-card ${selectedVehicleId === v.id ? 'sel' : ''}" id="tlc-${v.id}" onclick="flyToVehicle(${v.id})">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
-          <div style="font-weight:600;font-size:13px">${v.make} ${v.model}</div>
-          <div style="font-size:10.5px;color:var(--text2);font-family:'Space Grotesk',sans-serif">${v.plate}</div>
+          <div style="font-weight:600;font-size:13px">${esc(v.make)} ${esc(v.model)}</div>
+          <div style="font-size:10.5px;color:var(--text2);font-family:'Space Grotesk',sans-serif">${esc(v.plate)}</div>
         </div>
         <span class="speed-pill ${v.speed_kph > 0 ? 'moving' : 'parked'}">
           ${v.speed_kph > 0 ? v.speed_kph + ' km/h' : 'Parked'}
@@ -394,13 +395,13 @@ async function loadTracking() {
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
         </svg>
-        ${v.address || 'Unknown location'}
+        ${esc(v.address) || 'Unknown location'}
       </div>
       <div style="display:flex;justify-content:space-between;margin-top:7px;font-size:11px;color:var(--text3)">
         <span>${badge(v.status)}</span>
         <span>⏱ ${fmtTime(v.updated_at)}</span>
       </div>
-      ${v.renter_name ? `<div style="font-size:11px;color:var(--blue);margin-top:5px">👤 ${v.renter_name}</div>` : ''}
+      ${v.renter_name ? `<div style="font-size:11px;color:var(--blue);margin-top:5px">👤 ${esc(v.renter_name)}</div>` : ''}
     </div>`).join('');
 
   if (!trackRefreshTimer) {
@@ -439,7 +440,7 @@ async function refreshTracking() {
 async function openLocationModal() {
   const vehicles = await apiFetch('/vehicles');
   el('loc-vehicle').innerHTML = '<option value="">Select vehicle...</option>' +
-    vehicles.map(v => `<option value="${v.id}">${v.year} ${v.make} ${v.model} (${v.plate})</option>`).join('');
+    vehicles.map(v => `<option value="${v.id}">${v.year} ${esc(v.make)} ${esc(v.model)} (${esc(v.plate)})</option>`).join('');
   el('quick-locs').innerHTML = QUICK_LOCS.map(loc =>
     `<button class="ql-btn" onclick="applyQuickLoc(${loc.lat},${loc.lng},'${loc.label}')">${loc.label}</button>`
   ).join('');
@@ -502,8 +503,8 @@ async function loadRentals(filter = '') {
         return `
         <tr style="${isOverdue ? 'background:#fff5f5' : ''}">
           <td><strong style="font-family:'Space Grotesk',sans-serif">#${r.id}</strong></td>
-          <td>${r.customer_name}</td>
-          <td>${r.vehicle_name}</td>
+          <td>${esc(r.customer_name)}</td>
+          <td>${esc(r.vehicle_name)}</td>
           <td style="color:var(--text2)">${fmtDate(r.start_date)}</td>
           <td style="color:${isOverdue ? 'var(--red)' : 'var(--text2)'}">
             ${fmtDate(r.end_date)}${isOverdue ? ' ⚠' : ''}
@@ -554,11 +555,11 @@ async function openAddRental() {
     apiFetch('/vehicles?status=available'),
   ]);
   el('r-customer').innerHTML = '<option value="">Select customer...</option>' +
-    customers.map(c => `<option value="${c.id}">${c.first_name} ${c.last_name}</option>`).join('');
+    customers.map(c => `<option value="${c.id}">${esc(c.first_name)} ${esc(c.last_name)}</option>`).join('');
   el('r-vehicle').innerHTML = '<option value="">Select vehicle...</option>' +
     vehicles.map(v =>
       `<option value="${v.id}" data-rate="${v.daily_rate}">
-         ${v.year} ${v.make} ${v.model} (${v.plate}) — ${fmt(v.daily_rate)}/day
+         ${v.year} ${esc(v.make)} ${esc(v.model)} (${esc(v.plate)}) — ${fmt(v.daily_rate)}/day
        </option>`).join('');
   const today = new Date().toISOString().split('T')[0];
   const tmr   = new Date(Date.now() + 86400000).toISOString().split('T')[0];
@@ -612,9 +613,9 @@ async function loadCustomers(list) {
             <div class="cc-top">
               <div class="cc-av" style="background:${COLORS[i % COLORS.length]}">${ini}</div>
               <div>
-                <div class="cc-name">${c.first_name} ${c.last_name}</div>
-                <div class="cc-info">${c.email || '—'}</div>
-                <div class="cc-info">${c.phone || '—'}</div>
+                <div class="cc-name">${esc(c.first_name)} ${esc(c.last_name)}</div>
+                <div class="cc-info">${esc(c.email) || '—'}</div>
+                <div class="cc-info">${esc(c.phone) || '—'}</div>
               </div>
             </div>
             <div class="cc-stats">
@@ -694,10 +695,10 @@ async function loadPayments() {
         return `
         <tr>
           <td style="color:var(--text2)">${fmtDate(p.paid_at)}</td>
-          <td><strong>${p.customer_name}</strong></td>
-          <td>${p.vehicle_name}</td>
+          <td><strong>${esc(p.customer_name)}</strong></td>
+          <td>${esc(p.vehicle_name)}</td>
           <td><span style="font-family:'Space Grotesk',sans-serif;font-size:12px;color:var(--text2)">#${p.rental_id}</span></td>
-          <td><span style="background:var(--surface3);padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500">${p.method}</span></td>
+          <td><span style="background:var(--surface3);padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500">${esc(p.method)}</span></td>
           <td><strong>${fmt(p.amount)}</strong></td>
           <td>${balCell}</td>
         </tr>`}).join('')
@@ -708,7 +709,7 @@ async function openAddPayment() {
   const rentals = await apiFetch('/rentals?status=active');
   el('p-rental').innerHTML = '<option value="">Select rental...</option>' +
     rentals.map(r =>
-      `<option value="${r.id}">#${r.id} — ${r.customer_name} · ${r.vehicle_name} (${fmt(r.total_amount)})</option>`
+      `<option value="${r.id}">#${r.id} — ${esc(r.customer_name)} · ${esc(r.vehicle_name)} (${fmt(r.total_amount)})</option>`
     ).join('');
   openModal('m-payment');
 }
@@ -879,7 +880,7 @@ function drawRevenueTarget(data, month) {
       ${data.methods.length
         ? data.methods.map(m => `
             <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
-              <span style="color:var(--text2)">${m.method}</span>
+              <span style="color:var(--text2)">${esc(m.method)}</span>
               <span><strong>${fmt(m.total)}</strong> <span style="color:var(--text3);font-size:11px">(${m.count}×)</span></span>
             </div>`).join('')
         : '<div style="color:var(--text3);font-size:13px;padding:8px 0">No payments this month</div>'
@@ -931,7 +932,7 @@ function drawTopCustomers(rows, month) {
   container.innerHTML = rows.map((r, i) => `
     <div class="rpt-cust-row">
       <span class="rpt-cust-rank">#${i + 1}</span>
-      <span class="rpt-cust-name">${r.customer_name}</span>
+      <span class="rpt-cust-name">${esc(r.customer_name)}</span>
       <span style="font-size:11px;color:var(--text2);margin-right:10px">
         ${r.rental_count} rental${r.rental_count !== 1 ? 's' : ''}
       </span>
@@ -1037,7 +1038,7 @@ el('search-input').addEventListener('input', e => {
             return `
             <tr style="${isOverdue ? 'background:#fff5f5' : ''}">
               <td><strong style="font-family:'Space Grotesk',sans-serif">#${r.id}</strong></td>
-              <td>${r.customer_name}</td><td>${r.vehicle_name}</td>
+              <td>${esc(r.customer_name)}</td><td>${esc(r.vehicle_name)}</td>
               <td style="color:var(--text2)">${fmtDate(r.start_date)}</td>
               <td style="color:var(--text2)">${fmtDate(r.end_date)}</td>
               <td><strong>${fmt(r.total_amount)}</strong></td>
@@ -1168,6 +1169,31 @@ function startClock() {
   setInterval(tick, 1000);
 }
 
+// ─── SESSION EXPIRY WARNING ───────────────────────────────────────────────────
+function startSessionWatcher() {
+  const token = sessionStorage.getItem('autorent_token');
+  if (!token) return;
+  try {
+    const payload    = JSON.parse(atob(token.split('.')[1]));
+    const expiresAt  = payload.exp * 1000;
+
+    function checkExpiry() {
+      const msLeft = expiresAt - Date.now();
+      if (msLeft <= 0) { logout(); return; }
+      if (msLeft <= 30 * 60 * 1000) {
+        const minsLeft = Math.ceil(msLeft / 60000);
+        toast(`⏱ Session expires in ${minsLeft} minute${minsLeft !== 1 ? 's' : ''}. Save your work.`, 'error');
+      }
+    }
+
+    checkExpiry();
+    setInterval(checkExpiry, 5 * 60 * 1000);
+  } catch (e) {
+    logout();
+  }
+}
+
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 goTo('dashboard');
 startClock();
+startSessionWatcher();

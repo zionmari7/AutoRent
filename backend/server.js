@@ -2,6 +2,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
+const helmet  = require('helmet');
 const path    = require('path');
 
 const authMiddleware = require('./middleware/auth');
@@ -9,8 +10,35 @@ const authMiddleware = require('./middleware/auth');
 const app = express();
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
-app.use(cors());
-app.use(express.json());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc:  ["'self'"],
+      scriptSrc:   ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net",
+                    "https://unpkg.com", "https://cdnjs.cloudflare.com"],
+      styleSrc:    ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com",
+                    "https://unpkg.com"],
+      fontSrc:     ["'self'", "https://fonts.gstatic.com"],
+      imgSrc:      ["'self'", "data:", "https://*.tile.openstreetmap.org"],
+      connectSrc:  ["'self'"],
+    },
+  },
+}));
+
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000')
+  .split(',')
+  .map(o => o.trim());
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (same-origin, mobile apps, curl)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
+  credentials: true,
+}));
+app.use(express.json({ limit: '1mb' }));
 
 // Serve frontend static files
 app.use(express.static(path.join(__dirname, '../frontend')));
@@ -35,8 +63,15 @@ app.get('*', (req, res) => {
 
 // ─── ERROR HANDLER ────────────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
+  // Always log the full error internally for debugging
+  console.error(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   console.error(err.stack);
-  res.status(500).json({ error: err.message });
+  // In production, never expose internal error details to the client
+  const isDev = process.env.NODE_ENV !== 'production';
+  res.status(err.status || 500).json({
+    error: isDev ? err.message : 'An internal server error occurred.',
+    ...(isDev && { stack: err.stack }),
+  });
 });
 
 // ─── START ────────────────────────────────────────────────────────────────────
