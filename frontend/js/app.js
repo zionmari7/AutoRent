@@ -551,22 +551,24 @@ function openInvoice(rentalId) {
 }
 
 async function openAddRental() {
-  const [customers, vehicles] = await Promise.all([
-    apiFetch('/customers'),
-    apiFetch('/vehicles?status=available'),
-  ]);
-  el('r-customer').innerHTML = '<option value="">Select customer...</option>' +
-    customers.map(c => `<option value="${c.id}">${esc(c.first_name)} ${esc(c.last_name)}</option>`).join('');
-  el('r-vehicle').innerHTML = '<option value="">Select vehicle...</option>' +
-    vehicles.map(v =>
-      `<option value="${v.id}" data-rate="${v.daily_rate}">
-         ${v.year} ${esc(v.make)} ${esc(v.model)} (${esc(v.plate)}) — ${fmt(v.daily_rate)}/day
-       </option>`).join('');
-  const today = new Date().toISOString().split('T')[0];
-  const tmr   = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-  el('r-start').value = today; el('r-end').value = tmr;
-  updateRentalTotal();
-  openModal('m-rental');
+  try {
+    const [customers, vehicles] = await Promise.all([
+      apiFetch('/customers'),
+      apiFetch('/vehicles?status=available'),
+    ]);
+    el('r-customer').innerHTML = '<option value="">Select customer...</option>' +
+      customers.map(c => `<option value="${c.id}">${esc(c.first_name)} ${esc(c.last_name)}</option>`).join('');
+    el('r-vehicle').innerHTML = '<option value="">Select vehicle...</option>' +
+      vehicles.map(v =>
+        `<option value="${v.id}" data-rate="${v.daily_rate}">
+           ${v.year} ${esc(v.make)} ${esc(v.model)} (${esc(v.plate)}) — ${fmt(v.daily_rate)}/day
+         </option>`).join('');
+    const today = new Date().toISOString().split('T')[0];
+    const tmr   = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    el('r-start').value = today; el('r-end').value = tmr;
+    updateRentalTotal();
+    openModal('m-rental');
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 function updateRentalTotal() {
