@@ -1177,7 +1177,8 @@ el('btn-add-vehicle').addEventListener('click', () => {
   el('v-type').value = 'Sedan'; el('v-status').value = 'available';
   openModal('m-vehicle');
 });
-el('btn-add-rental').addEventListener('click',   openAddRental);
+el('btn-add-rental').addEventListener('click',      openAddRental);
+el('btn-dash-new-rental').addEventListener('click', openAddRental);
 el('btn-add-customer').addEventListener('click', () => {
   el('m-customer-title').textContent = 'Add Customer';
   el('c-id').value = '';
