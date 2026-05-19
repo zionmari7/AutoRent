@@ -19,10 +19,10 @@ cd backend
 npm install
 npm run dev
 ```
-Server runs at **http://localhost:3000** — database auto-creates and seeds on first run.
+Server runs at **http://localhost:3001** — database auto-creates and seeds on first run.
 
 ### 2. Web app
-Open **http://localhost:3000** in your browser. Done.
+Open **http://localhost:3001** in your browser. Done.
 
 ### 3. Android app
 ```bash
