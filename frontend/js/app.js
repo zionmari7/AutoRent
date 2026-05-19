@@ -1,5 +1,5 @@
 // app.js — AutoRent frontend  (Week 1: all gaps closed)
-const API    = 'http://localhost:3000/api';
+const API    = '/api';
 
 // ─── AUTH GUARD ───────────────────────────────────────────────────────────────
 (function checkAuth() {
