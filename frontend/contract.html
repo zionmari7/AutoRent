@@ -43,6 +43,7 @@
 <div class="page-wrap">
   <div class="no-print">
     <button class="btn btn-outline" onclick="window.close()">← Close</button>
+    <button class="btn btn-outline" onclick="savePDF()">💾 Save as PDF</button>
     <button class="btn btn-primary" onclick="window.print()">🖨 Print Contract</button>
   </div>
   <div id="contract-content">
@@ -50,6 +51,13 @@
   </div>
 </div>
 <script>
+  function savePDF() {
+    const originalTitle = document.title;
+    // Title becomes the PDF filename in the Save dialog
+    window.print();
+    document.title = originalTitle;
+  }
+
   const params   = new URLSearchParams(window.location.search);
   const rentalId = params.get('id');
   const token    = sessionStorage.getItem('autorent_token');

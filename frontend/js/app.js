@@ -232,18 +232,20 @@ function renderFleetGrid(data) {
 }
 
 async function editVehicle(id) {
-  const v = await apiFetch(`/vehicles/${id}`);
-  el('m-vehicle-title').textContent = 'Edit Vehicle';
-  el('v-id').value     = v.id;
-  el('v-make').value   = v.make;
-  el('v-model').value  = v.model;
-  el('v-year').value   = v.year;
-  el('v-plate').value  = v.plate;
-  el('v-type').value   = v.type;
-  el('v-rate').value   = v.daily_rate;
-  el('v-color').value  = v.color || '';
-  el('v-status').value = v.status;
-  openModal('m-vehicle');
+  try {
+    const v = await apiFetch(`/vehicles/${id}`);
+    el('m-vehicle-title').textContent = 'Edit Vehicle';
+    el('v-id').value     = v.id;
+    el('v-make').value   = v.make;
+    el('v-model').value  = v.model;
+    el('v-year').value   = v.year;
+    el('v-plate').value  = v.plate;
+    el('v-type').value   = v.type;
+    el('v-rate').value   = v.daily_rate;
+    el('v-color').value  = v.color || '';
+    el('v-status').value = v.status;
+    openModal('m-vehicle');
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 async function setVehicleStatus(id, current) {
@@ -635,16 +637,18 @@ async function loadCustomers(list) {
 }
 
 async function editCustomer(id) {
-  const c = await apiFetch(`/customers/${id}`);
-  el('m-customer-title').textContent = 'Edit Customer';
-  el('c-id').value      = c.id;
-  el('c-fn').value      = c.first_name;
-  el('c-ln').value      = c.last_name;
-  el('c-email').value   = c.email || '';
-  el('c-phone').value   = c.phone || '';
-  el('c-license').value = c.license_no || '';
-  el('c-address').value = c.address || '';
-  openModal('m-customer');
+  try {
+    const c = await apiFetch(`/customers/${id}`);
+    el('m-customer-title').textContent = 'Edit Customer';
+    el('c-id').value      = c.id;
+    el('c-fn').value      = c.first_name;
+    el('c-ln').value      = c.last_name;
+    el('c-email').value   = c.email || '';
+    el('c-phone').value   = c.phone || '';
+    el('c-license').value = c.license_no || '';
+    el('c-address').value = c.address || '';
+    openModal('m-customer');
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 async function saveCustomer() {
